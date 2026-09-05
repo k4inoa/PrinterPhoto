@@ -8,29 +8,76 @@ struct EscPosImageRenderer {
         case cannotReadPixels
     }
 
-    func centerSquareCrop(_ image: UIImage) throws -> UIImage {
-        guard let cgImage = image.cgImage else { throw RenderError.missingCGImage }
+    /// Redraws the image upright so pixel dimensions match displayed dimensions.
+    ///
+    /// A camera photo is stored in sensor orientation with an `imageOrientation` flag, so
+    /// `cgImage.width` is the displayed *height* for portrait shots. A square crop survives
+    /// that by symmetry, but any other ratio would take the wrong axis.
+    func normalizedUpright(_ image: UIImage) throws -> UIImage {
+        guard image.imageOrientation != .up || image.scale != 1 else { return image }
+        let size = CGSize(width: image.size.width * image.scale, height: image.size.height * image.scale)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+        return renderer.image { _ in
+            UIColor.white.setFill()
+            UIBezierPath(rect: CGRect(origin: .zero, size: size)).fill()
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
+    }
+
+    /// Center-crops to `ratio` (width ÷ height), taking the largest such rect that fits.
+    func centerCrop(_ image: UIImage, ratio: CGFloat) throws -> UIImage {
+        let upright = try normalizedUpright(image)
+        guard let cgImage = upright.cgImage else { throw RenderError.missingCGImage }
         let width = CGFloat(cgImage.width)
         let height = CGFloat(cgImage.height)
-        let side = min(width, height)
+        guard ratio > 0, width > 0, height > 0 else { throw RenderError.missingCGImage }
+
+        var cropWidth = width
+        var cropHeight = width / ratio
+        if cropHeight > height {
+            cropHeight = height
+            cropWidth = height * ratio
+        }
+
+        // Round the extent first, then place it. Rounding the whole rect outward with
+        // `.integral` would grow both edges and pull the result off the requested ratio.
+        let extentWidth = min(width, max(1, cropWidth.rounded()))
+        let extentHeight = min(height, max(1, cropHeight.rounded()))
         let rect = CGRect(
-            x: (width - side) / 2,
-            y: (height - side) / 2,
-            width: side,
-            height: side
-        ).integral
+            x: ((width - extentWidth) / 2).rounded(.down),
+            y: ((height - extentHeight) / 2).rounded(.down),
+            width: extentWidth,
+            height: extentHeight
+        )
+
         guard let cropped = cgImage.cropping(to: rect) else { throw RenderError.missingCGImage }
-        return UIImage(cgImage: cropped, scale: image.scale, orientation: image.imageOrientation)
+        return UIImage(cgImage: cropped, scale: 1, orientation: .up)
     }
 
-    func renderedPreview(from image: UIImage, paperWidth: PaperWidth) throws -> UIImage {
-        let cropped = try centerSquareCrop(image)
-        let targetSize = CGSize(width: paperWidth.rawValue, height: paperWidth.rawValue)
-        return resize(cropped, to: targetSize)
+    func centerSquareCrop(_ image: UIImage) throws -> UIImage {
+        try centerCrop(image, ratio: 1)
     }
 
-    func rasterCommand(from image: UIImage, paperWidth: PaperWidth) throws -> Data {
-        let rendered = try renderedPreview(from: image, paperWidth: paperWidth)
+    /// Full-resolution crop, for output paths that do their own scaling (AirPrint).
+    func croppedImage(from image: UIImage, cropRatio: CropRatio = .auto) throws -> UIImage {
+        let upright = try normalizedUpright(image)
+        return try centerCrop(upright, ratio: cropRatio.effectiveRatio(for: upright.size))
+    }
+
+    func renderedPreview(from image: UIImage, paperWidth: PaperWidth, cropRatio: CropRatio = .auto) throws -> UIImage {
+        let upright = try normalizedUpright(image)
+        let ratio = cropRatio.effectiveRatio(for: upright.size)
+        let cropped = try centerCrop(upright, ratio: ratio)
+        let width = CGFloat(paperWidth.rawValue)
+        let height = max(1, (width / ratio).rounded())
+        return resize(cropped, to: CGSize(width: width, height: height))
+    }
+
+    func rasterCommand(from image: UIImage, paperWidth: PaperWidth, cropRatio: CropRatio = .auto) throws -> Data {
+        let rendered = try renderedPreview(from: image, paperWidth: paperWidth, cropRatio: cropRatio)
         guard let cgImage = rendered.cgImage else { throw RenderError.missingCGImage }
         let width = cgImage.width
         let height = cgImage.height
@@ -64,9 +111,9 @@ struct EscPosImageRenderer {
         return command
     }
 
-    func printData(from image: UIImage, paperWidth: PaperWidth, cutPaper: Bool = true) throws -> Data {
+    func printData(from image: UIImage, paperWidth: PaperWidth, cropRatio: CropRatio = .auto, cutPaper: Bool = true) throws -> Data {
         var data = Data([0x1B, 0x40])
-        data.append(try rasterCommand(from: image, paperWidth: paperWidth))
+        data.append(try rasterCommand(from: image, paperWidth: paperWidth, cropRatio: cropRatio))
         data.append(contentsOf: [0x0A, 0x0A, 0x0A])
         if cutPaper {
             data.append(contentsOf: [0x1D, 0x56, 0x42, 0x00])

@@ -28,8 +28,9 @@ struct ContentView: View {
                     printSection
                 }
                 .padding(10)
+                .foregroundStyle(AppTheme.navy)
             }
-            .background(Color(.systemGray5))
+            .background(AppTheme.background.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .background(airPrintBridge)
             .alert(item: $alert) { alert in
@@ -54,28 +55,28 @@ struct ContentView: View {
                     }
                     .buttonStyle(UtilityButtonStyle())
 
-                    UtilityValueRow(label: "Mode", value: "Square crop")
+                    UtilityValueRow(label: "Crop", value: cropDescription)
                     UtilityValueRow(label: "Loaded", value: selectedImage == nil ? "No" : "Yes")
                 }
 
-                ZStack {
-                    Rectangle()
-                        .fill(Color.white)
-                        .border(Color.black.opacity(0.55), width: 1)
-
-                    if let previewImage {
-                        Image(uiImage: previewImage)
-                            .resizable()
-                            .interpolation(.none)
-                            .scaledToFit()
-                            .padding(4)
-                    } else {
-                        Text("NO IMAGE")
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundStyle(.secondary)
+                Rectangle()
+                    .fill(AppTheme.paper)
+                    .aspectRatio(previewAspectRatio, contentMode: .fit)
+                    .overlay {
+                        if let previewImage {
+                            Image(uiImage: previewImage)
+                                .resizable()
+                                .interpolation(.none)
+                                .scaledToFit()
+                                .padding(3)
+                        } else {
+                            Text("NO IMAGE")
+                                .font(.system(size: 12, design: .monospaced))
+                                .foregroundStyle(AppTheme.muted)
+                        }
                     }
-                }
-                .frame(width: 116, height: 116)
+                    .border(AppTheme.border, width: 1)
+                    .frame(width: 116, height: 116)
             }
         }
     }
@@ -102,8 +103,8 @@ struct ContentView: View {
                         .font(.system(size: 12, weight: .bold, design: .monospaced))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 4)
-                        .background(Color.yellow.opacity(0.35))
-                        .border(Color.black.opacity(0.55), width: 1)
+                        .background(AppTheme.navyHighlight)
+                        .border(AppTheme.border, width: 1)
                 }
             }
 
@@ -113,7 +114,7 @@ struct ContentView: View {
             if discovery.printers.isEmpty {
                 Text("No printer found. Enter IP address manually if needed.")
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.muted)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 VStack(spacing: 1) {
@@ -145,10 +146,12 @@ struct ContentView: View {
                 .keyboardType(.numbersAndPunctuation)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13, design: .monospaced))
+                .foregroundStyle(AppTheme.navy)
+                .tint(AppTheme.navy)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 5)
-                .background(Color.white)
-                .border(Color.black.opacity(0.55), width: 1)
+                .background(AppTheme.paper)
+                .border(AppTheme.border, width: 1)
 
             Button("Add") {
                 discovery.addManualPrinter(host: manualHost)
@@ -164,6 +167,14 @@ struct ContentView: View {
                 ForEach(PrintPath.allCases, id: \.self) { path in
                     UtilityOptionButton(title: path.label, isSelected: settings.lastPrintPath == path) {
                         settings.lastPrintPath = path
+                    }
+                }
+            }
+
+            UtilityOptionGrid(label: "Crop") {
+                ForEach(CropRatio.allCases) { ratio in
+                    UtilityOptionButton(title: ratio.label, isSelected: settings.cropRatio == ratio) {
+                        settings.cropRatio = ratio
                     }
                 }
             }
@@ -199,22 +210,51 @@ struct ContentView: View {
             if settings.lastPrintPath == .escPos, selectedEscPosPrinter == nil {
                 Text("ESC/POS requires selected raw socket printer.")
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.muted)
             }
         }
     }
 
     @ViewBuilder
     private var airPrintBridge: some View {
-        if let selectedImage {
-            AirPrintPresenter(image: selectedImage, isPresented: $showAirPrint)
+        if let airPrintImage {
+            AirPrintPresenter(image: airPrintImage, isPresented: $showAirPrint)
                 .frame(width: 0, height: 0)
         }
     }
 
     private var previewImage: UIImage? {
         guard let selectedImage else { return nil }
-        return try? renderer.renderedPreview(from: selectedImage, paperWidth: settings.paperWidth)
+        return try? renderer.renderedPreview(
+            from: selectedImage,
+            paperWidth: settings.paperWidth,
+            cropRatio: settings.cropRatio
+        )
+    }
+
+    /// AirPrint scales for itself, so it gets the full-resolution crop rather than the
+    /// paper-width raster - but the same framing the receipt path would use.
+    private var airPrintImage: UIImage? {
+        guard let selectedImage else { return nil }
+        return (try? renderer.croppedImage(from: selectedImage, cropRatio: settings.cropRatio)) ?? selectedImage
+    }
+
+    /// `UIImage.size` is already orientation-corrected, so it is safe to read the source
+    /// ratio from it without paying for a full redraw on every view update.
+    private var sourceSize: CGSize? {
+        selectedImage.map(\.size)
+    }
+
+    private var previewAspectRatio: CGFloat {
+        guard let sourceSize else { return 1 }
+        return settings.cropRatio.effectiveRatio(for: sourceSize)
+    }
+
+    /// Shows what `auto` actually landed on, so the choice is legible rather than magic.
+    private var cropDescription: String {
+        guard settings.cropRatio == .auto else { return settings.cropRatio.label }
+        guard let sourceSize else { return "AUTO" }
+        return "AUTO -> \(CropRatio.resolve(for: sourceSize).label)"
     }
 
     private var selectedPrinter: DiscoveredPrinter? {
@@ -263,9 +303,22 @@ struct ContentView: View {
         defer { isPrinting = false }
 
         do {
-            try await escPosClient.print(image: selectedImage, to: printer, paperWidth: settings.paperWidth)
+            let confirmation = try await escPosClient.print(
+                image: selectedImage,
+                to: printer,
+                paperWidth: settings.paperWidth,
+                cropRatio: settings.cropRatio
+            )
             settings.remember(printer: printer, printPath: .escPos)
-            alert = AppAlert(title: "Sent to printer", message: "The photo was sent to \(printer.name).")
+            switch confirmation {
+            case .acknowledged:
+                alert = AppAlert(
+                    title: "Printed",
+                    message: "\(printer.name) took the whole photo and closed the connection."
+                )
+            case .unconfirmed(let reason):
+                alert = AppAlert(title: "Sent, but not confirmed", message: reason)
+            }
         } catch {
             alert = AppAlert(title: "Print failed", message: error.localizedDescription)
         }
@@ -289,15 +342,15 @@ private struct PrinterRow: View {
                         .font(.system(size: 13, weight: .semibold, design: .monospaced))
                     Text(detail)
                         .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.muted)
                 }
 
                 Spacer()
             }
             .padding(7)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? Color(.systemGray4) : Color.white)
-            .border(Color.black.opacity(0.35), width: 1)
+            .background(isSelected ? AppTheme.selected : AppTheme.paper)
+            .border(AppTheme.lightBorder, width: 1)
         }
         .buttonStyle(.plain)
     }
@@ -321,13 +374,13 @@ private struct UtilityTitleBar: View {
     var body: some View {
         Text(title)
             .font(.system(size: 16, weight: .bold, design: .monospaced))
-            .foregroundStyle(Color.black)
+            .foregroundStyle(AppTheme.navy)
             .textCase(.none)
             .padding(.horizontal, 8)
             .padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.systemGray4))
-            .border(Color.black.opacity(0.7), width: 1)
+            .background(AppTheme.panel)
+            .border(AppTheme.border, width: 1)
     }
 }
 
@@ -340,15 +393,15 @@ private struct UtilityBox<Content: View>: View {
             Text(title)
                 .font(.system(size: 12, weight: .bold, design: .monospaced))
                 .padding(.horizontal, 4)
-                .background(Color(.systemGray5))
+                .background(AppTheme.background)
                 .offset(y: -3)
 
             content
         }
         .padding(8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemGray6))
-        .border(Color.black.opacity(0.55), width: 1)
+        .background(AppTheme.panel)
+        .border(AppTheme.border, width: 1)
     }
 }
 
@@ -384,6 +437,27 @@ private struct UtilityOptionRow<Content: View>: View {
     }
 }
 
+/// Same look as `UtilityOptionRow`, wrapped over several lines. The crop list has ten
+/// entries, which will not fit the single `HStack` the other option rows use.
+private struct UtilityOptionGrid<Content: View>: View {
+    let label: String
+    var columns: Int = 5
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text("\(label):")
+                .font(.system(size: 12, design: .monospaced))
+            LazyVGrid(
+                columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: columns),
+                spacing: 4
+            ) {
+                content
+            }
+        }
+    }
+}
+
 private struct UtilityOptionButton: View {
     let title: String
     let isSelected: Bool
@@ -405,26 +479,72 @@ private struct UtilityButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: isSelected ? .bold : .regular, design: .monospaced))
-            .foregroundStyle(isEnabled ? Color.black : Color.gray)
+            .foregroundStyle(isEnabled ? AppTheme.navy : AppTheme.muted)
             .lineLimit(1)
             .minimumScaleFactor(0.75)
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .background(background(isPressed: configuration.isPressed))
-            .border(Color.black.opacity(isEnabled ? 0.7 : 0.25), width: 1)
+            .border(isEnabled ? AppTheme.border : AppTheme.lightBorder, width: 1)
             .opacity(isEnabled ? 1 : 0.55)
     }
 
     private func background(isPressed: Bool) -> Color {
         if !isEnabled {
-            return Color(.systemGray5)
+            return AppTheme.background
         }
         if isPressed {
-            return Color(.systemGray3)
+            return AppTheme.selected
         }
         if isSelected {
-            return Color(.systemGray4)
+            return AppTheme.selected
         }
-        return Color.white
+        return AppTheme.paper
+    }
+}
+
+/// Every tone is defined as a light/dark pair so the utility look survives in
+/// both appearances: `navy` is the ink, and the three grounds stack from the
+/// page (`background`) up through `panel` to the `paper` that inputs sit on.
+private enum AppTheme {
+    static let navy = adaptive(
+        light: (0.08, 0.16, 0.27),
+        dark: (0.87, 0.90, 0.94)
+    )
+    static let background = adaptive(
+        light: (0.86, 0.87, 0.89),
+        dark: (0.07, 0.08, 0.11)
+    )
+    static let panel = adaptive(
+        light: (0.93, 0.94, 0.95),
+        dark: (0.12, 0.14, 0.18)
+    )
+    static let paper = adaptive(
+        light: (0.98, 0.98, 0.97),
+        dark: (0.17, 0.19, 0.24)
+    )
+    static let selected = adaptive(
+        light: (0.76, 0.80, 0.86),
+        dark: (0.27, 0.33, 0.43)
+    )
+    static let navyHighlight = adaptive(
+        light: (0.70, 0.76, 0.84),
+        dark: (0.31, 0.39, 0.51)
+    )
+    static let muted = adaptive(
+        light: (0.38, 0.42, 0.48),
+        dark: (0.63, 0.67, 0.73)
+    )
+    static let border = navy.opacity(0.7)
+    static let lightBorder = navy.opacity(0.3)
+
+    private static func adaptive(
+        light: (CGFloat, CGFloat, CGFloat),
+        dark: (CGFloat, CGFloat, CGFloat)
+    ) -> Color {
+        Color(UIColor { traits in
+            let rgb = traits.userInterfaceStyle == .dark ? dark : light
+            return UIColor(red: rgb.0, green: rgb.1, blue: rgb.2, alpha: 1)
+        })
     }
 }

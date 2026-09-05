@@ -51,7 +51,8 @@ final class PrinterDiscoveryService: ObservableObject {
             ports: [9100],
             discoverySource: .manual,
             capabilities: [.rawSocket9100],
-            lastSeen: Date()
+            lastSeen: Date(),
+            destination: .hostPort(host: trimmed, port: 9100)
         )
         merge([printer])
     }
@@ -71,7 +72,10 @@ final class PrinterDiscoveryService: ObservableObject {
                         ports: Self.ports(for: capability),
                         discoverySource: .bonjour,
                         capabilities: [capability],
-                        lastSeen: Date()
+                        lastSeen: Date(),
+                        // The instance name is not a DNS host - keep the service
+                        // itself so Network.framework can resolve it at connect time.
+                        destination: .bonjourService(name: name, type: type, domain: domain)
                     )
                 }
 
@@ -225,6 +229,7 @@ struct SubnetScanner: Sendable {
         if openPorts.contains(515) { capabilities.insert(.lpd) }
         if capabilities.isEmpty { capabilities.insert(.unknown) }
 
+        let preferredPort = openPorts.contains(9100) ? 9100 : (openPorts.sorted().first ?? 9100)
         return DiscoveredPrinter(
             id: "scan-\(host)",
             name: "Printer \(host)",
@@ -232,7 +237,8 @@ struct SubnetScanner: Sendable {
             ports: Array(openPorts).sorted(),
             discoverySource: .subnetScan,
             capabilities: capabilities,
-            lastSeen: Date()
+            lastSeen: Date(),
+            destination: .hostPort(host: host, port: preferredPort)
         )
     }
 

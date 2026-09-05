@@ -22,6 +22,10 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(lastPrintPath.rawValue, forKey: Keys.lastPrintPath) }
     }
 
+    @Published var cropRatio: CropRatio {
+        didSet { defaults.set(cropRatio.rawValue, forKey: Keys.cropRatio) }
+    }
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -32,6 +36,7 @@ final class AppSettings: ObservableObject {
         lastPrinterPort = savedPort == 0 ? 9100 : savedPort
         paperWidth = PaperWidth(rawValue: defaults.integer(forKey: Keys.paperWidth)) ?? .eightyMillimeter
         lastPrintPath = PrintPath(rawValue: defaults.string(forKey: Keys.lastPrintPath) ?? "") ?? .escPos
+        cropRatio = CropRatio(rawValue: defaults.string(forKey: Keys.cropRatio) ?? "") ?? .auto
     }
 
     func remember(printer: DiscoveredPrinter, printPath: PrintPath) {
@@ -47,5 +52,6 @@ final class AppSettings: ObservableObject {
         static let lastPrinterPort = "lastPrinterPort"
         static let paperWidth = "paperWidth"
         static let lastPrintPath = "lastPrintPath"
+        static let cropRatio = "cropRatio"
     }
 }
