@@ -12,6 +12,7 @@
 		2B5D84544DBE9D9A056E51F5 /* AirPrintPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DF924AB3919F90A21581FC9 /* AirPrintPresenter.swift */; };
 		6609A7C242E6E9B279775411 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C734DBBA23B5B6A5AE6545D7 /* ContentView.swift */; };
 		9AA7B3D83839B0CA5E11590A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B7965E899FFB5535AEF18C4B /* Assets.xcassets */; };
+		A65C191964D31C8F9FB194C0 /* PrintDeliveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4A329400A8E06C42A03B6E5 /* PrintDeliveryTests.swift */; };
 		B41DD0A9A1E6EEA83910E0C9 /* EscPosImageRendererTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDFFA2348248A90862779515 /* EscPosImageRendererTests.swift */; };
 		C6DA695839B4FB6B5219768B /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECFC06C4BC49BF0D5344FBDD /* AppSettings.swift */; };
 		CB78573032A051F535CDD7A8 /* SubnetScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D23DC656EAF900464D7ED94 /* SubnetScannerTests.swift */; };
@@ -38,9 +39,10 @@
 		4F44BC1372EE4DEDBC05F8D3 /* PrinterPhotoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrinterPhotoApp.swift; sourceTree = "<group>"; };
 		690014B26A47C73634FE592A /* EscPosImageRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscPosImageRenderer.swift; sourceTree = "<group>"; };
 		7683377CBC9B344C539E7CE6 /* PrinterDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrinterDiscoveryService.swift; sourceTree = "<group>"; };
-		8053311A3047D54BBE860EB0 /* PrinterPhotoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PrinterPhotoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		A93A458F5174FEBD54632D4C /* PrinterPhoto.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PrinterPhoto.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8053311A3047D54BBE860EB0 /* PrinterPhotoTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PrinterPhotoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A93A458F5174FEBD54632D4C /* PrinterPhoto.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PrinterPhoto.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B25FD414ACAEB850CA1A6368 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		B4A329400A8E06C42A03B6E5 /* PrintDeliveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrintDeliveryTests.swift; sourceTree = "<group>"; };
 		B7965E899FFB5535AEF18C4B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C734DBBA23B5B6A5AE6545D7 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		CDFFA2348248A90862779515 /* EscPosImageRendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscPosImageRendererTests.swift; sourceTree = "<group>"; };
@@ -63,6 +65,7 @@
 			children = (
 				CDFFA2348248A90862779515 /* EscPosImageRendererTests.swift */,
 				19C0524ADD6C49B89C54E585 /* Info.plist */,
+				B4A329400A8E06C42A03B6E5 /* PrintDeliveryTests.swift */,
 				3D23DC656EAF900464D7ED94 /* SubnetScannerTests.swift */,
 			);
 			path = PrinterPhotoTests;
@@ -140,7 +143,9 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2640;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
 			};
 			buildConfigurationList = 12E49F9C31D5E83254B3BEA7 /* Build configuration list for PBXProject "PrinterPhoto" */;
 			developmentRegion = en;
@@ -194,6 +199,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B41DD0A9A1E6EEA83910E0C9 /* EscPosImageRendererTests.swift in Sources */,
+				A65C191964D31C8F9FB194C0 /* PrintDeliveryTests.swift in Sources */,
 				CB78573032A051F535CDD7A8 /* SubnetScannerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -231,7 +237,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = U7R35VTTS7;
 				INFOPLIST_FILE = PrinterPhoto/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -281,7 +286,6 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -296,7 +300,6 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -358,7 +361,6 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -380,7 +382,6 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -392,7 +393,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = U7R35VTTS7;
 				INFOPLIST_FILE = PrinterPhoto/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
